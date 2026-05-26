@@ -1548,26 +1548,26 @@
                   <span>Copy</span>
                 </button>
                 
-                <pre id="snippet-curl" class="snippet-code-content active"><code class="language-bash" style="color: #9ece6a;">curl -X POST "http://127.0.0.1:8000/predict" \
+                <pre id="snippet-curl" class="snippet-code-content active"><code class="language-bash" style="color: #9ece6a;">curl -X POST "https://nextbill-assignment.onrender.com/predict" \
   -H "Content-Type: application/json" \
-  -H "x-api-key: nextbill_dev_secret_key_2026" \
+  -H "x-api-key: YOUR_API_KEY" \
   -d '{"text": "AWS cloud server hosting"}'</code></pre>
                 
                 <pre id="snippet-python" class="snippet-code-content"><code class="language-python" style="color: #abb2bf;"><span style="color: #e5c07b;">from</span> sdk.client <span style="color: #e5c07b;">import</span> NextBillClassifierClient
 
 client = NextBillClassifierClient(
-    base_url=<span style="color: #9ece6a;">"http://127.0.0.1:8000"</span>,
-    api_key=<span style="color: #9ece6a;">"nextbill_dev_secret_key_2026"</span>
+    base_url=<span style="color: #9ece6a;">"https://nextbill-assignment.onrender.com"</span>,
+    api_key=<span style="color: #9ece6a;">"YOUR_API_KEY"</span>
 )
 
 result = client.classify(<span style="color: #9ece6a;">"AWS cloud server hosting"</span>)
 print(result[<span style="color: #9ece6a;">"category"</span>])  <span style="color: #5c6370; font-style: italic;"># Cloud/Software</span></code></pre>
                 
-                <pre id="snippet-javascript" class="snippet-code-content"><code class="language-javascript" style="color: #abb2bf;"><span style="color: #e5c07b;">const</span> response = <span style="color: #e5c07b;">await</span> fetch(<span style="color: #9ece6a;">"http://127.0.0.1:8000/predict"</span>, {
+                <pre id="snippet-javascript" class="snippet-code-content"><code class="language-javascript" style="color: #abb2bf;"><span style="color: #e5c07b;">const</span> response = <span style="color: #e5c07b;">await</span> fetch(<span style="color: #9ece6a;">"https://nextbill-assignment.onrender.com/predict"</span>, {
   method: <span style="color: #9ece6a;">"POST"</span>,
   headers: {
     <span style="color: #9ece6a;">"Content-Type"</span>: <span style="color: #9ece6a;">"application/json"</span>,
-    <span style="color: #9ece6a;">"x-api-key"</span>: <span style="color: #9ece6a;">"nextbill_dev_secret_key_2026"</span>
+    <span style="color: #9ece6a;">"x-api-key"</span>: <span style="color: #9ece6a;">"YOUR_API_KEY"</span>
   },
   body: JSON.stringify({
     text: <span style="color: #9ece6a;">"AWS cloud server hosting"</span>
@@ -1727,6 +1727,8 @@ console.log(data.category);  <span style="color: #5c6370; font-style: italic;">/
       });
     }
 
+    let activeApiKey = 'nextbill_dev_secret_key_2026';
+
     async function classifyText() {
       const text = document.getElementById('text-input').value.trim();
       if (!text) return;
@@ -1750,16 +1752,35 @@ console.log(data.category);  <span style="color: #5c6370; font-style: italic;">/
 
       try {
         const start = performance.now();
-        const response = await fetch('/predict', {
+        let response = await fetch('/predict', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-api-key': 'nextbill_dev_secret_key_2026'
+            'x-api-key': activeApiKey
           },
           body: JSON.stringify({ text })
         });
-        const elapsed = (performance.now() - start).toFixed(1);
+        
+        // Handle production security guard mismatch dynamically
+        if (response.status === 403 || response.status === 401) {
+          const newKey = prompt("Production Security Guard Active: \nYour sandbox needs the production API Key to proceed. Please enter the x-api-key:", activeApiKey);
+          if (newKey && newKey.trim() !== '') {
+            activeApiKey = newKey.trim();
+            // Retry the request with the new key
+            response = await fetch('/predict', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': activeApiKey
+              },
+              body: JSON.stringify({ text })
+            });
+          } else {
+            throw new Error("Authentication cancelled. Production API Key is required.");
+          }
+        }
 
+        const elapsed = (performance.now() - start).toFixed(1);
         const data = await response.json();
 
         if (response.ok) {
