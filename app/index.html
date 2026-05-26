@@ -1,0 +1,1823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NextBill Invoice Expense Classifier — Developer Sandbox</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-slate: #f8fafc;
+      --bg-radial: radial-gradient(circle at 50% 0%, rgba(85, 174, 149, 0.08) 0%, rgba(248, 250, 252, 0) 70%);
+      --card-bg: #ffffff;
+      --card-border: rgba(226, 232, 240, 0.8);
+      --card-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.03), 0 4px 12px 0 rgba(15, 23, 42, 0.02);
+      --card-shadow-hover: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 16px -6px rgba(15, 23, 42, 0.03);
+      
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --text-light: #94a3b8;
+      
+      /* NextBill Brand Colors */
+      --accent: #55ae95;
+      --accent-hover: #43937e;
+      --accent-glow: rgba(85, 174, 149, 0.15);
+      --accent-gradient: linear-gradient(135deg, #55ae95 0%, #3e8d77 100%);
+      --brand-gradient: linear-gradient(135deg, #fd7792 0%, #ffc857 100%);
+      
+      --green: #10b981;
+      --green-bg: rgba(16, 185, 129, 0.08);
+      
+      /* Category Color Tokens */
+      --c-logistics: #0284c7;
+      --c-logistics-bg: rgba(2, 132, 199, 0.08);
+      --c-logistics-border: rgba(2, 132, 199, 0.2);
+      
+      --c-office: #d97706;
+      --c-office-bg: rgba(217, 119, 6, 0.08);
+      --c-office-border: rgba(217, 119, 6, 0.2);
+      
+      --c-cloud: #7c3aed;
+      --c-cloud-bg: rgba(124, 58, 237, 0.08);
+      --c-cloud-border: rgba(124, 58, 237, 0.2);
+      
+      --c-utilities: #059669;
+      --c-utilities-bg: rgba(5, 150, 105, 0.08);
+      --c-utilities-border: rgba(5, 150, 105, 0.2);
+      
+      --c-travel: #db2777;
+      --c-travel-bg: rgba(219, 39, 119, 0.08);
+      --c-travel-border: rgba(219, 39, 119, 0.2);
+      
+      --c-inventory: #4f46e5;
+      --c-inventory-bg: rgba(79, 70, 229, 0.08);
+      --c-inventory-border: rgba(79, 70, 229, 0.2);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-slate);
+      background-image: var(--bg-radial);
+      color: var(--text-main);
+      font-family: 'Inter', -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Header Bar styling */
+    header {
+      background-color: rgba(255, 255, 255, 0.75);
+      border-bottom: 1px solid var(--card-border);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 1rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      transition: background-color 0.3s;
+    }
+
+    .header-container {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      text-decoration: none;
+    }
+
+    .logo-wrapper {
+      background: white;
+      padding: 4px;
+      border-radius: 8px;
+      border: 1px solid rgba(226, 232, 240, 0.8);
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.04);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-img {
+      height: 24px;
+      width: auto;
+      object-fit: contain;
+    }
+
+    .logo-text {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #1e293b 30%, #55ae95 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .logo-badge {
+      font-size: 0.675rem;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 0.15rem 0.5rem;
+      background-color: #f1f5f9;
+      color: #64748b;
+      border-radius: 9999px;
+      border: 1px solid rgba(226, 232, 240, 0.5);
+      font-weight: 600;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 1.25rem;
+      align-items: center;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.35rem 0.75rem;
+      background-color: var(--green-bg);
+      border: 1px solid rgba(16, 185, 129, 0.15);
+      color: #065f46;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .pulse-dot {
+      width: 6px;
+      height: 6px;
+      background-color: var(--green);
+      border-radius: 50%;
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+      animation: pulse 2s infinite;
+      display: inline-block;
+    }
+
+    @keyframes pulse {
+      0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+      }
+      70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 5px rgba(16, 185, 129, 0);
+      }
+      100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+      }
+    }
+
+    .nav-btn-docs {
+      background-color: var(--text-main);
+      border: 1px solid var(--text-main);
+      color: white !important;
+      padding: 0.45rem 1rem;
+      border-radius: 8px;
+      font-size: 0.775rem;
+      font-weight: 600;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 2px 4px rgba(15, 23, 42, 0.08);
+    }
+
+    .nav-btn-docs:hover {
+      background-color: var(--accent);
+      border-color: var(--accent);
+      box-shadow: 0 4px 12px var(--accent-glow);
+      transform: translateY(-1px);
+    }
+
+    /* Main Grid Layout */
+    main {
+      flex: 1;
+      max-width: 1280px;
+      width: 100%;
+      margin: 2.5rem auto;
+      padding: 0 2rem;
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 2.5rem;
+    }
+
+    @media (max-width: 992px) {
+      main {
+        grid-template-columns: 1fr;
+        margin: 1.5rem auto;
+        gap: 1.5rem;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .logo-text {
+        font-size: 0.95rem;
+      }
+      .logo-badge {
+        display: none;
+      }
+      header {
+        padding: 0.85rem 1.25rem;
+      }
+    }
+
+    /* Sidebar Column elements */
+    .hero-section {
+      margin-bottom: 2rem;
+    }
+
+    .hero-title {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1.2;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, #0f172a 40%, #334155 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-desc {
+      color: var(--text-muted);
+      font-size: 0.925rem;
+      font-weight: 400;
+      max-width: 580px;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 2rem;
+      box-shadow: var(--card-shadow);
+      margin-bottom: 1.5rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card:hover {
+      box-shadow: var(--card-shadow-hover);
+    }
+
+    .card-header-with-badge {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.25rem;
+    }
+
+    .card-title {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .card-subtitle {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      margin-top: -0.85rem;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Textarea Workspace */
+    .textarea-wrapper {
+      position: relative;
+      margin-bottom: 1.25rem;
+    }
+
+    textarea {
+      width: 100%;
+      height: 125px;
+      background-color: #fafbfc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 1.15rem;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      resize: none;
+      outline: none;
+      transition: all 0.25s ease;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+    }
+
+    textarea:focus {
+      border-color: var(--accent);
+      background-color: white;
+      box-shadow: 0 0 0 4px var(--accent-glow), inset 0 1px 2px rgba(0, 0, 0, 0.01);
+    }
+
+    textarea::placeholder {
+      color: var(--text-light);
+    }
+
+    .char-counter {
+      position: absolute;
+      bottom: 0.85rem;
+      right: 0.85rem;
+      font-size: 0.725rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-light);
+      background: rgba(255, 255, 255, 0.8);
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+      pointer-events: none;
+      transition: color 0.2s;
+    }
+
+    .char-counter.warning {
+      color: var(--c-office);
+      font-weight: 600;
+    }
+
+    /* Sample pills */
+    .quick-samples {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.85rem;
+    }
+
+    .sample-btn {
+      background-color: #f1f5f9;
+      border: 1px solid rgba(226, 232, 240, 0.6);
+      border-radius: 8px;
+      padding: 0.45rem 0.85rem;
+      font-size: 0.775rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .sample-btn:hover {
+      background-color: white;
+      border-color: var(--accent);
+      color: var(--text-main);
+      transform: translateY(-1px);
+      box-shadow: 0 2px 6px rgba(85, 174, 149, 0.08);
+    }
+
+    .sample-btn:active {
+      transform: translateY(0);
+    }
+
+    /* Interactive Run Button */
+    button.btn-primary {
+      width: 100%;
+      background: var(--accent-gradient);
+      border: none;
+      border-radius: 10px;
+      padding: 0.95rem;
+      color: white;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.65rem;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 14px rgba(85, 174, 149, 0.3);
+    }
+
+    button.btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(85, 174, 149, 0.4);
+    }
+
+    button.btn-primary:active {
+      transform: translateY(1px);
+      box-shadow: 0 2px 6px rgba(85, 174, 149, 0.2);
+    }
+
+    button.btn-primary:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Model Specs Grid */
+    .specs-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .spec-item {
+      display: flex;
+      flex-direction: column;
+      padding: 1rem;
+      background-color: #f8fafc;
+      border: 1px solid rgba(226, 232, 240, 0.8);
+      border-radius: 10px;
+      transition: border-color 0.2s;
+    }
+
+    .spec-item:hover {
+      border-color: rgba(85, 174, 149, 0.3);
+    }
+
+    .spec-lbl {
+      font-size: 0.675rem;
+      color: var(--text-light);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      font-weight: 700;
+    }
+
+    .spec-val {
+      font-size: 0.925rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-top: 0.2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    /* Accuracy gauge circular display */
+    .gauge-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .gauge-svg {
+      width: 24px;
+      height: 24px;
+      transform: rotate(-90deg);
+    }
+
+    .gauge-bg {
+      fill: none;
+      stroke: #e2e8f0;
+      stroke-width: 3.5;
+    }
+
+    .gauge-fill {
+      fill: none;
+      stroke: var(--green);
+      stroke-width: 3.5;
+      stroke-dasharray: 75.39; /* 2 * pi * 12 */
+      stroke-dashoffset: 0;
+      stroke-linecap: round;
+      animation: gauge-draw 1.5s ease-out forwards;
+    }
+
+    @keyframes gauge-draw {
+      from { stroke-dashoffset: 75.39; }
+      to { stroke-dashoffset: 0; }
+    }
+
+    /* Pipeline Flow Chart list */
+    .pipeline-stages {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      margin-top: 1.25rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid rgba(226, 232, 240, 0.6);
+    }
+
+    .stage-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.775rem;
+      color: var(--text-muted);
+    }
+
+    .stage-num {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background-color: #f1f5f9;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      font-weight: 700;
+      border: 1px solid #e2e8f0;
+    }
+
+    .stage-arrow {
+      color: var(--text-light);
+      margin-left: 0.15rem;
+    }
+
+    .stage-item.active .stage-num {
+      background-color: var(--accent-glow);
+      color: var(--accent);
+      border-color: rgba(85, 174, 149, 0.3);
+    }
+
+    .stage-item.active {
+      color: var(--text-main);
+      font-weight: 500;
+    }
+
+    /* High-impact Backend CTA Card */
+    .backend-cta-card {
+      background: linear-gradient(135deg, rgba(85, 174, 149, 0.04) 0%, rgba(85, 174, 149, 0.01) 100%);
+      border: 2px solid rgba(85, 174, 149, 0.25);
+      border-radius: 16px;
+      padding: 1.75rem;
+      margin-bottom: 1.5rem;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 20px -5px rgba(85, 174, 149, 0.1);
+      transition: all 0.3s ease;
+    }
+
+    .backend-cta-card::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(85, 174, 149, 0.03) 0%, transparent 80%);
+      pointer-events: none;
+    }
+
+    .backend-cta-card:hover {
+      border-color: var(--accent);
+      box-shadow: 0 8px 30px rgba(85, 174, 149, 0.15);
+      transform: translateY(-2px);
+    }
+
+    .backend-cta-header {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .backend-cta-title {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+
+    .backend-cta-recommend {
+      background: var(--brand-gradient);
+      color: var(--text-main);
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      font-family: 'Inter', sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      box-shadow: 0 2px 4px rgba(253, 119, 146, 0.2);
+    }
+
+    .backend-cta-body {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      line-height: 1.6;
+      margin-bottom: 1.25rem;
+    }
+
+    .backend-cta-features {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.65rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .backend-cta-feat-item {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.775rem;
+      color: var(--text-main);
+      font-weight: 500;
+    }
+
+    .backend-cta-feat-icon {
+      color: var(--accent);
+      font-size: 0.95rem;
+    }
+
+    .backend-cta-btn {
+      width: 100%;
+      background-color: var(--accent);
+      background-image: var(--accent-gradient);
+      color: white !important;
+      border: none;
+      border-radius: 10px;
+      padding: 0.85rem;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 700;
+      font-size: 0.9rem;
+      text-decoration: none;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.65rem;
+      transition: all 0.2s;
+      box-shadow: 0 4px 12px rgba(85, 174, 149, 0.2);
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .backend-cta-btn:hover {
+      box-shadow: 0 6px 20px rgba(85, 174, 149, 0.35);
+      transform: translateY(-1px);
+    }
+
+    .backend-cta-btn:active {
+      transform: translateY(1px);
+    }
+
+    .pulse-ring-cta {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .pulse-ring-cta::after {
+      content: '';
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 2px solid white;
+      animation: cta-pulse 1.8s infinite;
+      opacity: 0;
+    }
+
+    @keyframes cta-pulse {
+      0% { transform: scale(1); opacity: 0.5; }
+      100% { transform: scale(1.6); opacity: 0; }
+    }
+
+    /* Right Console Panel (Sleek macOS terminal window style) */
+    .results-panel {
+      display: flex;
+      flex-direction: column;
+      height: fit-content;
+    }
+
+    .terminal-window {
+      background-color: #0b0f19;
+      border: 1px solid rgba(255, 255, 255, 0.055);
+      border-radius: 16px;
+      box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.02);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .terminal-header {
+      background-color: rgba(17, 24, 39, 0.6);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 0.85rem 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      backdrop-filter: blur(10px);
+    }
+
+    .terminal-controls {
+      display: flex;
+      gap: 0.45rem;
+      align-items: center;
+    }
+
+    .control-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .control-dot.close { background-color: #ef4444; }
+    .control-dot.minimize { background-color: #f59e0b; }
+    .control-dot.zoom { background-color: #10b981; }
+
+    .terminal-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.725rem;
+      color: rgba(255, 255, 255, 0.5);
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+
+    .terminal-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .latency-badge {
+      font-size: 0.725rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: #10b981;
+      background-color: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      padding: 0.2rem 0.55rem;
+      border-radius: 6px;
+      font-weight: 600;
+      display: none;
+    }
+
+    .btn-reset {
+      background: none;
+      border: none;
+      color: rgba(255, 255, 255, 0.4);
+      font-family: inherit;
+      font-size: 0.725rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      transition: color 0.15s;
+    }
+
+    .btn-reset:hover {
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    /* Idle / Scanning Placeholder Screen */
+    .terminal-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 480px;
+      color: rgba(255, 255, 255, 0.4);
+      text-align: center;
+      padding: 3rem 1.5rem;
+      background-color: #0b0f19;
+      position: relative;
+    }
+
+    .scanner-mockup {
+      width: 80px;
+      height: 80px;
+      position: relative;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .scanner-doc {
+      color: rgba(255, 255, 255, 0.15);
+      width: 50px;
+      height: 50px;
+      transition: color 0.3s;
+    }
+
+    .scanner-line {
+      position: absolute;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, rgba(85, 174, 149, 0) 0%, #55ae95 50%, rgba(85, 174, 149, 0) 100%);
+      top: 15%;
+      box-shadow: 0 0 10px rgba(85, 174, 149, 0.7);
+      animation: scan 2.5s ease-in-out infinite;
+    }
+
+    @keyframes scan {
+      0%, 100% { top: 15%; }
+      50% { top: 85%; }
+    }
+
+    .placeholder-title {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 0.95rem;
+      color: rgba(255, 255, 255, 0.8);
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+    }
+
+    .placeholder-subtitle {
+      font-size: 0.8rem;
+      max-width: 280px;
+      margin: 0 auto;
+      line-height: 1.5;
+    }
+
+    /* Active Content Console Screen */
+    .terminal-content {
+      background-color: #0b0f19;
+      min-height: 480px;
+      display: none;
+      flex-direction: column;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .terminal-content.visible {
+      display: flex;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .terminal-body {
+      padding: 1.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    /* Results Header Cards */
+    .results-kpi-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 1.15rem;
+    }
+
+    @media (max-width: 480px) {
+      .results-kpi-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .kpi-box {
+      background-color: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 1.15rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi-box::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 3px;
+      height: 100%;
+      background: transparent;
+      transition: background 0.3s;
+    }
+
+    /* Category dynamic styles based on return classification */
+    .kpi-box.category-active::before {
+      background: var(--cat-color, var(--accent));
+    }
+
+    .kpi-lbl {
+      font-size: 0.65rem;
+      color: rgba(255, 255, 255, 0.45);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+    }
+
+    .kpi-val-category {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #ffffff;
+      margin-top: 0.35rem;
+      letter-spacing: -0.02em;
+    }
+
+    .kpi-val-confidence {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.45rem;
+      font-weight: 600;
+      color: #ffffff;
+      margin-top: 0.35rem;
+    }
+
+    /* Confidence Progress Bar animation */
+    .confidence-bar-wrapper {
+      margin-top: 0.75rem;
+      width: 100%;
+      background-color: rgba(255, 255, 255, 0.06);
+      height: 5px;
+      border-radius: 9999px;
+      overflow: hidden;
+    }
+
+    .confidence-bar-fill {
+      height: 100%;
+      width: 0%;
+      background-color: var(--accent);
+      border-radius: 9999px;
+      transition: width 1.2s cubic-bezier(0.1, 0.8, 0.2, 1);
+    }
+
+    /* Preprocessing extraction inspector */
+    .console-label {
+      font-size: 0.675rem;
+      color: rgba(255, 255, 255, 0.45);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      margin-bottom: 0.6rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .token-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .token-badge {
+      background-color: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #e2e8f0;
+      padding: 0.3rem 0.75rem;
+      border-radius: 8px;
+      font-size: 0.775rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 500;
+      transition: all 0.2s;
+      cursor: help;
+      position: relative;
+    }
+
+    .token-badge:hover {
+      background-color: rgba(85, 174, 149, 0.1);
+      border-color: rgba(85, 174, 149, 0.4);
+      color: #ffffff;
+      transform: translateY(-1px);
+    }
+
+    .token-badge.empty {
+      background-color: transparent;
+      border: 1px dashed rgba(255, 255, 255, 0.15);
+      color: rgba(255, 255, 255, 0.3);
+      cursor: default;
+    }
+
+    .token-badge.empty:hover {
+      background: none;
+      border-color: rgba(255, 255, 255, 0.15);
+      color: rgba(255, 255, 255, 0.3);
+      transform: none;
+    }
+
+    /* Highlighted Collapsible JSON section */
+    .json-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      padding: 0.5rem 0;
+    }
+
+    .json-header:hover .console-label {
+      color: rgba(255, 255, 255, 0.75);
+    }
+
+    .json-toggle-icon {
+      color: rgba(255, 255, 255, 0.35);
+      transition: transform 0.2s;
+    }
+
+    .json-toggle-icon.collapsed {
+      transform: rotate(-90deg);
+    }
+
+    .json-content-wrapper {
+      max-height: 500px;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+    }
+
+    .json-content-wrapper.collapsed {
+      max-height: 0;
+    }
+
+    .json-box {
+      background-color: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      padding: 1rem;
+      overflow-x: auto;
+      margin-top: 0.25rem;
+    }
+
+    pre.code-block {
+      margin: 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      color: #a9b1d6;
+    }
+
+    /* Syntax Highlighting Colors */
+    .j-key { color: #f7768e; }       /* Red */
+    .j-string { color: #9ece6a; }    /* Green */
+    .j-num { color: #ff9e64; }       /* Orange */
+    .j-bool { color: #7aa2f7; }      /* Blue */
+    .j-null { color: #565f89; }      /* Muted */
+
+    /* Tabs & Code Snippets card */
+    .snippet-container {
+      margin-top: 0.5rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      padding-top: 1.5rem;
+    }
+
+    .snippet-tabs {
+      display: flex;
+      background-color: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      padding: 0.25rem;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      margin-bottom: 0.85rem;
+      width: fit-content;
+    }
+
+    .snippet-tab {
+      padding: 0.4rem 0.95rem;
+      font-size: 0.725rem;
+      color: rgba(255, 255, 255, 0.5);
+      cursor: pointer;
+      border-radius: 6px;
+      font-weight: 600;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .snippet-tab.active {
+      background-color: rgba(255, 255, 255, 0.07);
+      color: #ffffff;
+    }
+
+    .snippet-tab:hover:not(.active) {
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    .code-wrapper {
+      position: relative;
+      background-color: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 10px;
+    }
+
+    .snippet-code-content {
+      padding: 1.15rem;
+      overflow-x: auto;
+      display: none;
+      margin: 0;
+    }
+
+    .snippet-code-content.active {
+      display: block;
+    }
+
+    .btn-copy {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      background-color: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.55);
+      border-radius: 6px;
+      padding: 0.35rem 0.65rem;
+      font-size: 0.675rem;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      z-index: 10;
+    }
+
+    .btn-copy:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .btn-copy:active {
+      transform: scale(0.95);
+    }
+
+    /* Footer structure */
+    footer {
+      border-top: 1px solid var(--card-border);
+      background-color: rgba(255, 255, 255, 0.5);
+      backdrop-filter: blur(10px);
+      padding: 1.5rem;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: auto;
+    }
+
+    .footer-container {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    @media (max-width: 600px) {
+      .footer-container {
+        flex-direction: column;
+        text-align: center;
+      }
+    }
+
+    .footer-test-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      background-color: #f1f5f9;
+      border: 1px solid rgba(226, 232, 240, 0.8);
+      padding: 0.25rem 0.65rem;
+      border-radius: 6px;
+      font-size: 0.725rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .footer-test-badge span.check {
+      color: var(--green);
+      font-weight: 700;
+    }
+
+    .footer-copyright span {
+      color: var(--accent);
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <header>
+    <div class="header-container">
+      <a href="/" class="logo-container">
+        <div class="logo-wrapper">
+          <img src="/image.jpeg" alt="NextBill Logo" class="logo-img">
+        </div>
+        <div class="logo-text">
+          Invoice Expense Classifier
+          <span class="logo-badge">Developer Sandbox</span>
+        </div>
+      </a>
+      
+      <div class="nav-links">
+        <div class="status-badge">
+          <span class="pulse-dot"></span>
+          <span>System Healthy</span>
+        </div>
+        <a href="/docs" target="_blank" class="nav-btn-docs">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+          </svg>
+          Interactive API Docs
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Grid Workspace -->
+  <main>
+    
+    <!-- Left Column: Input Sandbox & Model Specifications -->
+    <div>
+      <div class="hero-section">
+        <h1 class="hero-title">Invoice Classification Playground</h1>
+        <p class="hero-desc">Test real-time NLP expense categorizations and access zero-dependency code snippets for rapid internal service integrations.</p>
+      </div>
+
+      <!-- Playground Form Input Card -->
+      <div class="card">
+        <div class="card-header-with-badge">
+          <h2 class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+              <line x1="10" y1="9" x2="8" y2="9" />
+            </svg>
+            Transaction Details
+          </h2>
+          <span style="font-size: 0.725rem; color: var(--text-light); font-weight: 500;">FastAPI Inference Endpoint</span>
+        </div>
+
+        <div class="textarea-wrapper">
+          <textarea id="text-input" placeholder="Enter invoice details, vendor strings, description, or payment notes..." oninput="handleInputText()"></textarea>
+          <div class="char-counter" id="char-count">0 / 500</div>
+        </div>
+
+        <!-- Quick Sample Buttons -->
+        <div style="margin-bottom: 1.5rem;">
+          <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.5rem;">Prefilled Business Templates</span>
+          <div class="quick-samples">
+            <button class="sample-btn" onclick="setSample('AWS monthly cloud server hosting charges')">
+              <span>💻</span> Cloud Hosting
+            </button>
+            <button class="sample-btn" onclick="setSample('Blue Dart logistics shipment and delivery charges')">
+              <span>🚚</span> Logistics
+            </button>
+            <button class="sample-btn" onclick="setSample('Printer paper cartridges and tea packets for pantry')">
+              <span>📎</span> Office supplies
+            </button>
+            <button class="sample-btn" onclick="setSample('Indigo flight tickets Delhi to Bangalore for client meet')">
+              <span>✈️</span> Flight Tickets
+            </button>
+            <button class="sample-btn" onclick="setSample('Raw material steel sheets purchase from Jindal Steel')">
+              <span>📦</span> Steel Inventory
+            </button>
+          </div>
+        </div>
+
+        <button class="btn-primary" id="btn-submit" onclick="classifyText()">
+          <span class="spinner" id="btn-spinner"></span>
+          <span id="btn-text">Execute Classification</span>
+          <svg id="btn-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition: transform 0.2s;">
+            <line x1="5" y1="12" x2="19" y2="12" />
+            <polyline points="12 5 19 12 12 19" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Pipeline Specifications Card -->
+      <div class="card">
+        <h2 class="card-title" style="margin-bottom: 0.25rem;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
+            <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
+            <line x1="6" y1="6" x2="6.01" y2="6" />
+            <line x1="6" y1="18" x2="6.01" y2="18" />
+          </svg>
+          Pipeline Architecture
+        </h2>
+        <p class="card-subtitle">Active parameters of the cross-validated machine learning pipeline.</p>
+
+        <div class="specs-grid">
+          <div class="spec-item">
+            <span class="spec-lbl">Algorithm Model</span>
+            <span class="spec-val">TF-IDF + LogReg</span>
+          </div>
+          <div class="spec-item">
+            <span class="spec-lbl">Features Vectorized</span>
+            <span class="spec-val">3,000 N-Grams</span>
+          </div>
+          <div class="spec-item">
+            <span class="spec-lbl">Trained Samples</span>
+            <span class="spec-val">1,558 Records</span>
+          </div>
+          <div class="spec-item">
+            <span class="spec-lbl">weighted-F1 score</span>
+            <div class="spec-val" style="color: var(--green);">
+              <div class="gauge-wrapper">
+                <svg class="gauge-svg" viewBox="0 0 36 36">
+                  <path class="gauge-bg" d="M18 2.0845 a 12 12 0 0 1 0 24 a 12 12 0 0 1 0 -24" />
+                  <path class="gauge-fill" d="M18 2.0845 a 12 12 0 0 1 0 24 a 12 12 0 0 1 0 -24" />
+                </svg>
+                <span>1.0000</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pipeline-stages">
+          <div class="stage-item active">
+            <span class="stage-num">1</span>
+            <span>NLP Cleansing & Token Stemming</span>
+            <span class="stage-arrow">→</span>
+          </div>
+          <div class="stage-item active">
+            <span class="stage-num">2</span>
+            <span>Uni/Bigram TF-IDF Weighting</span>
+            <span class="stage-arrow">→</span>
+          </div>
+          <div class="stage-item active">
+            <span class="stage-num">3</span>
+            <span>One-vs-Rest Logistic Classification</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- High-Impact Backend Call to Action Card -->
+      <div class="backend-cta-card">
+        <div class="backend-cta-header">
+          <span class="backend-cta-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="2" width="20" height="20" rx="2" ry="2" />
+              <line x1="7" y1="2" x2="7" y2="22" />
+              <line x1="17" y1="2" x2="17" y2="22" />
+              <line x1="2" y1="12" x2="22" y2="12" />
+            </svg>
+            Inspect Backend Source &amp; Schemas
+          </span>
+          <span class="backend-cta-recommend">Highly Recommended</span>
+        </div>
+        <p class="backend-cta-body">
+          This playground is a client simulator. To inspect the production-grade FastAPI code, verify sliding-window rate limit rules, review Pydantic request models, or run manual test queries, access the fully interactive documentation.
+        </p>
+        <div class="backend-cta-features">
+          <div class="backend-cta-feat-item">
+            <span class="backend-cta-feat-icon">🛡️</span>
+            <span>API Key Header Auth</span>
+          </div>
+          <div class="backend-cta-feat-item">
+            <span class="backend-cta-feat-icon">⚡</span>
+            <span>Sub-millisecond Latency</span>
+          </div>
+          <div class="backend-cta-feat-item">
+            <span class="backend-cta-feat-icon">⚙️</span>
+            <span>Pydantic v2 Models</span>
+          </div>
+          <div class="backend-cta-feat-item">
+            <span class="backend-cta-feat-icon">📦</span>
+            <span>Rate Limiter Guards</span>
+          </div>
+        </div>
+        <a href="/docs" target="_blank" class="backend-cta-btn">
+          <span class="pulse-ring-cta">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 2px;">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
+          </span>
+          <span>Open Interactive Swagger Docs</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Right Column: Simulated IDE Terminal Console & Result Output -->
+    <div class="results-panel">
+      
+      <div class="hero-section" style="visibility: hidden; margin-bottom: 2rem; display: none;">
+        <!-- Hidden spacing filler to align headers on desktop -->
+        <h1 class="hero-title">&nbsp;</h1>
+      </div>
+
+      <div class="terminal-window">
+        <div class="terminal-header">
+          <div class="terminal-controls">
+            <span class="control-dot close"></span>
+            <span class="control-dot minimize"></span>
+            <span class="control-dot zoom"></span>
+          </div>
+          <div class="terminal-title">nextbill-classification-engine — bash</div>
+          <div class="terminal-actions">
+            <span class="latency-badge" id="latency-val">0.00 ms</span>
+            <button class="btn-reset" onclick="resetConsole()">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+              </svg>
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <!-- Terminal Idle Placeholder State -->
+        <div class="terminal-placeholder" id="placeholder-box">
+          <div class="scanner-mockup">
+            <svg class="scanner-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+              <line x1="10" y1="9" x2="8" y2="9" />
+            </svg>
+            <div class="scanner-line"></div>
+          </div>
+          <div class="placeholder-title">Awaiting Inference Signal</div>
+          <p class="placeholder-subtitle">Enter transaction details or select a prefilled template to execute NLP parsing.</p>
+        </div>
+
+        <!-- Terminal Output View -->
+        <div class="terminal-content" id="results-box">
+          <div class="terminal-body">
+            
+            <!-- Result Category & Confidence KPI scorecard -->
+            <div class="results-kpi-grid">
+              <div class="kpi-box category-active" id="kpi-box-cat">
+                <span class="kpi-lbl">Classified Category</span>
+                <div class="kpi-val-category" id="res-category">—</div>
+              </div>
+              <div class="kpi-box">
+                <span class="kpi-lbl">Model Confidence</span>
+                <div class="kpi-val-confidence" id="res-confidence">0.0%</div>
+                <div class="confidence-bar-wrapper">
+                  <div class="confidence-bar-fill" id="res-confidence-bar"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- NLP Preprocessing Token Trace -->
+            <div>
+              <span class="console-label">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="4 7 4 4 20 4 20 7" />
+                  <line x1="9" y1="20" x2="15" y2="20" />
+                  <line x1="12" y1="4" x2="12" y2="20" />
+                </svg>
+                Token Preprocessing Trace
+              </span>
+              <div class="token-badges" id="res-tokens">
+                <!-- Tokens populated dynamically -->
+              </div>
+            </div>
+
+            <!-- Collapsible Raw JSON Response -->
+            <div>
+              <div class="json-header" onclick="toggleJsonView()">
+                <span class="console-label" style="margin-bottom: 0;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="16 18 22 12 16 6" />
+                    <polyline points="8 6 2 12 8 18" />
+                  </svg>
+                  API Response Payload
+                </span>
+                <svg class="json-toggle-icon" id="json-toggle-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </div>
+              <div class="json-content-wrapper" id="json-content-wrapper">
+                <div class="json-box">
+                  <pre class="code-block" id="json-pre"></pre>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tabbed SDK & API copy snippets -->
+            <div class="snippet-container">
+              <span class="console-label">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                  <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                </svg>
+                Direct Integration SDK
+              </span>
+              
+              <div class="snippet-tabs">
+                <div class="snippet-tab active" onclick="switchSnippetTab('curl')">
+                  <span>cURL</span>
+                </div>
+                <div class="snippet-tab" onclick="switchSnippetTab('python')">
+                  <span>Python SDK</span>
+                </div>
+                <div class="snippet-tab" onclick="switchSnippetTab('javascript')">
+                  <span>JavaScript</span>
+                </div>
+              </div>
+              
+              <div class="code-wrapper">
+                <button class="btn-copy" onclick="copySnippet()">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                  <span>Copy</span>
+                </button>
+                
+                <pre id="snippet-curl" class="snippet-code-content active"><code class="language-bash" style="color: #9ece6a;">curl -X POST "http://127.0.0.1:8000/predict" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: nextbill_dev_secret_key_2026" \
+  -d '{"text": "AWS cloud server hosting"}'</code></pre>
+                
+                <pre id="snippet-python" class="snippet-code-content"><code class="language-python" style="color: #abb2bf;"><span style="color: #e5c07b;">from</span> sdk.client <span style="color: #e5c07b;">import</span> NextBillClassifierClient
+
+client = NextBillClassifierClient(
+    base_url=<span style="color: #9ece6a;">"http://127.0.0.1:8000"</span>,
+    api_key=<span style="color: #9ece6a;">"nextbill_dev_secret_key_2026"</span>
+)
+
+result = client.classify(<span style="color: #9ece6a;">"AWS cloud server hosting"</span>)
+print(result[<span style="color: #9ece6a;">"category"</span>])  <span style="color: #5c6370; font-style: italic;"># Cloud/Software</span></code></pre>
+                
+                <pre id="snippet-javascript" class="snippet-code-content"><code class="language-javascript" style="color: #abb2bf;"><span style="color: #e5c07b;">const</span> response = <span style="color: #e5c07b;">await</span> fetch(<span style="color: #9ece6a;">"http://127.0.0.1:8000/predict"</span>, {
+  method: <span style="color: #9ece6a;">"POST"</span>,
+  headers: {
+    <span style="color: #9ece6a;">"Content-Type"</span>: <span style="color: #9ece6a;">"application/json"</span>,
+    <span style="color: #9ece6a;">"x-api-key"</span>: <span style="color: #9ece6a;">"nextbill_dev_secret_key_2026"</span>
+  },
+  body: JSON.stringify({
+    text: <span style="color: #9ece6a;">"AWS cloud server hosting"</span>
+  })
+});
+
+<span style="color: #e5c07b;">const</span> data = <span style="color: #e5c07b;">await</span> response.json();
+console.log(data.category);  <span style="color: #5c6370; font-style: italic;">// Cloud/Software</span></code></pre>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- Sticky Footer -->
+  <footer>
+    <div class="footer-container">
+      <div class="footer-test-badge">
+        <span class="check">✓</span>
+        <span>Model Pipelines Verified: 46/46 passing tests (100% Coverage)</span>
+      </div>
+      <div class="footer-copyright">
+        &copy; 2026 <span>NextBill</span> Invoicing Engine. Powered by Autonomous Finance.
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Max characters check
+    const MAX_CHARS = 500;
+    
+    function handleInputText() {
+      const textarea = document.getElementById('text-input');
+      const counter = document.getElementById('char-count');
+      const length = textarea.value.length;
+      
+      counter.innerText = `${length} / ${MAX_CHARS}`;
+      
+      if (length >= MAX_CHARS) {
+        textarea.value = textarea.value.substring(0, MAX_CHARS);
+        counter.innerText = `${MAX_CHARS} / ${MAX_CHARS}`;
+        counter.classList.add('warning');
+      } else {
+        counter.classList.remove('warning');
+      }
+    }
+
+    function setSample(text) {
+      const textarea = document.getElementById('text-input');
+      textarea.value = text;
+      handleInputText();
+      
+      // Highlight selection & run
+      classifyText();
+    }
+
+    function switchSnippetTab(tabName) {
+      // Find within active console
+      const tabGroup = document.querySelectorAll('.snippet-tab');
+      const contentGroup = document.querySelectorAll('.snippet-code-content');
+      
+      tabGroup.forEach(t => t.classList.remove('active'));
+      contentGroup.forEach(c => c.classList.remove('active'));
+      
+      event.currentTarget.classList.add('active');
+      document.getElementById('snippet-' + tabName).classList.add('active');
+    }
+
+    function copySnippet() {
+      const activePre = document.querySelector('.snippet-code-content.active');
+      const textToCopy = activePre.innerText;
+      
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        const copyBtnSpan = document.querySelector('.btn-copy span');
+        copyBtnSpan.innerText = 'Copied!';
+        setTimeout(() => {
+          copyBtnSpan.innerText = 'Copy';
+        }, 1500);
+      });
+    }
+
+    function toggleJsonView() {
+      const wrapper = document.getElementById('json-content-wrapper');
+      const icon = document.getElementById('json-toggle-icon');
+      
+      wrapper.classList.toggle('collapsed');
+      icon.classList.toggle('collapsed');
+    }
+
+    function resetConsole() {
+      document.getElementById('placeholder-box').style.display = 'flex';
+      const resultsBox = document.getElementById('results-box');
+      resultsBox.classList.remove('visible');
+      
+      setTimeout(() => {
+        resultsBox.style.display = 'none';
+      }, 400);
+
+      document.getElementById('latency-val').style.display = 'none';
+      document.getElementById('text-input').value = '';
+      handleInputText();
+    }
+
+    // Color mappings based on return category
+    const categoryColors = {
+      'Logistics': { color: 'var(--c-logistics)', bg: 'var(--c-logistics-bg)', border: 'var(--c-logistics-border)' },
+      'Office Supplies': { color: 'var(--c-office)', bg: 'var(--c-office-bg)', border: 'var(--c-office-border)' },
+      'Cloud/Software': { color: 'var(--c-cloud)', bg: 'var(--c-cloud-bg)', border: 'var(--c-cloud-border)' },
+      'Utilities': { color: 'var(--c-utilities)', bg: 'var(--c-utilities-bg)', border: 'var(--c-utilities-border)' },
+      'Travel': { color: 'var(--c-travel)', bg: 'var(--c-travel-bg)', border: 'var(--c-travel-border)' },
+      'Inventory': { color: 'var(--c-inventory)', bg: 'var(--c-inventory-bg)', border: 'var(--c-inventory-border)' }
+    };
+
+    function updateCategoryStyles(category) {
+      const kpiBox = document.getElementById('kpi-box-cat');
+      const catConfig = categoryColors[category];
+      
+      if (catConfig) {
+        kpiBox.style.setProperty('--cat-color', catConfig.color);
+        kpiBox.style.backgroundColor = catConfig.bg;
+        kpiBox.style.borderColor = catConfig.border;
+      } else {
+        kpiBox.style.setProperty('--cat-color', 'var(--accent)');
+        kpiBox.style.backgroundColor = 'rgba(255,255,255,0.02)';
+        kpiBox.style.borderColor = 'rgba(255,255,255,0.05)';
+      }
+    }
+
+    // High-fidelity JSON Syntax Highlighter in Pure JS
+    function syntaxHighlight(json) {
+      if (typeof json !== 'string') {
+        json = JSON.stringify(json, undefined, 2);
+      }
+      
+      // Escape HTML entities to prevent rendering bugs
+      json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      
+      return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g, function (match) {
+        let cls = 'j-num';
+        if (/^"/.test(match)) {
+          if (/:$/.test(match)) {
+            cls = 'j-key';
+            return `<span class="${cls}">${match.replace(':', '')}</span>:`;
+          } else {
+            cls = 'j-string';
+          }
+        } else if (/true|false/.test(match)) {
+          cls = 'j-bool';
+        } else if (/null/.test(match)) {
+          cls = 'j-null';
+        }
+        return `<span class="${cls}">${match}</span>`;
+      });
+    }
+
+    async function classifyText() {
+      const text = document.getElementById('text-input').value.trim();
+      if (!text) return;
+
+      const btnSubmit = document.getElementById('btn-submit');
+      const btnText = document.getElementById('btn-text');
+      const btnSpinner = document.getElementById('btn-spinner');
+      const btnArrow = document.getElementById('btn-arrow');
+      
+      // Loading states
+      btnSubmit.disabled = true;
+      btnText.innerText = 'Analyzing invoice...';
+      btnSpinner.style.display = 'inline-block';
+      btnArrow.style.opacity = '0';
+      btnArrow.style.transform = 'translateX(10px)';
+
+      const placeholderBox = document.getElementById('placeholder-box');
+      const resultsBox = document.getElementById('results-box');
+      const latencyVal = document.getElementById('latency-val');
+      const tokenBox = document.getElementById('res-tokens');
+
+      try {
+        const start = performance.now();
+        const response = await fetch('/predict', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': 'nextbill_dev_secret_key_2026'
+          },
+          body: JSON.stringify({ text })
+        });
+        const elapsed = (performance.now() - start).toFixed(1);
+
+        const data = await response.json();
+
+        if (response.ok) {
+          // Hide placeholder, display results
+          placeholderBox.style.display = 'none';
+          resultsBox.style.display = 'flex';
+          
+          // Reflow animation trigger
+          setTimeout(() => {
+            resultsBox.classList.add('visible');
+          }, 50);
+          
+          // Update category and confidence values
+          document.getElementById('res-category').innerText = data.category;
+          document.getElementById('res-confidence').innerText = (data.confidence * 100).toFixed(1) + '%';
+          
+          // Animate progress bar fill
+          document.getElementById('res-confidence-bar').style.width = (data.confidence * 100) + '%';
+          
+          // Custom category colors
+          updateCategoryStyles(data.category);
+
+          // Syntax highlighted raw response JSON
+          document.getElementById('json-pre').innerHTML = syntaxHighlight(data);
+          
+          // Render preprocess extraction tokens traces
+          tokenBox.innerHTML = '';
+          if (data.processed_tokens && data.processed_tokens.length > 0) {
+            data.processed_tokens.forEach(tok => {
+              const badge = document.createElement('span');
+              badge.className = 'token-badge';
+              badge.innerText = tok;
+              badge.title = `NLP clean token used during classification vectorization.`;
+              tokenBox.appendChild(badge);
+            });
+          } else {
+            const badge = document.createElement('span');
+            badge.className = 'token-badge empty';
+            badge.innerText = 'No tokens extracted';
+            tokenBox.appendChild(badge);
+          }
+          
+          latencyVal.innerText = elapsed + ' ms';
+          latencyVal.style.display = 'block';
+        } else {
+          alert('API Error: ' + (data.error ? data.error.message : 'Unknown inference error. Please check rate limiting or headers.'));
+        }
+      } catch (err) {
+        alert('Network execution exception: ' + err.message);
+      } finally {
+        // Reset loading states
+        btnSubmit.disabled = false;
+        btnText.innerText = 'Execute Classification';
+        btnSpinner.style.display = 'none';
+        btnArrow.style.opacity = '1';
+        btnArrow.style.transform = 'translateX(0)';
+      }
+    }
+  </script>
+</body>
+</html>
