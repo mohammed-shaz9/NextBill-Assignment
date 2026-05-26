@@ -65,8 +65,10 @@ api_key_header = APIKeyHeader(name=settings.API_KEY_NAME, auto_error=True)
 async def verify_api_key(api_key: str = Security(api_key_header)) -> str:
     """
     Validates the client's API Key against configured secret.
+    Allows 'nextbill_public_demo' for public Sandbox UI access.
     """
-    if api_key != settings.API_KEY:
+    valid_keys = {settings.API_KEY, "nextbill_public_demo"}
+    if api_key not in valid_keys:
         logger.warning("Unauthorized access attempt with invalid API Key")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

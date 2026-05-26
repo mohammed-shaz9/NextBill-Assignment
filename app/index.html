@@ -1727,7 +1727,7 @@ console.log(data.category);  <span style="color: #5c6370; font-style: italic;">/
       });
     }
 
-    let activeApiKey = 'nextbill_dev_secret_key_2026';
+    let activeApiKey = 'nextbill_public_demo';
 
     async function classifyText() {
       const text = document.getElementById('text-input').value.trim();
@@ -1761,25 +1761,6 @@ console.log(data.category);  <span style="color: #5c6370; font-style: italic;">/
           body: JSON.stringify({ text })
         });
         
-        // Handle production security guard mismatch dynamically
-        if (response.status === 403 || response.status === 401) {
-          const newKey = prompt("Production Security Guard Active: \nYour sandbox needs the production API Key to proceed. Please enter the x-api-key:", activeApiKey);
-          if (newKey && newKey.trim() !== '') {
-            activeApiKey = newKey.trim();
-            // Retry the request with the new key
-            response = await fetch('/predict', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': activeApiKey
-              },
-              body: JSON.stringify({ text })
-            });
-          } else {
-            throw new Error("Authentication cancelled. Production API Key is required.");
-          }
-        }
-
         const elapsed = (performance.now() - start).toFixed(1);
         const data = await response.json();
 
