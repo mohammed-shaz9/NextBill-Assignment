@@ -1376,46 +1376,46 @@
         <div class="backend-cta-header">
           <span class="backend-cta-title">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="2" y="2" width="20" height="20" rx="2" ry="2" />
-              <line x1="7" y1="2" x2="7" y2="22" />
-              <line x1="17" y1="2" x2="17" y2="22" />
-              <line x1="2" y1="12" x2="22" y2="12" />
-            </svg>
-            Inspect Backend Source &amp; Schemas
-          </span>
-          <span class="backend-cta-recommend">Highly Recommended</span>
+        <div class="backend-cta-card">
+          <div class="backend-cta-header">
+            <h3 class="backend-cta-title">
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              Enterprise Backend
+            </h3>
+            <span class="backend-cta-recommend">Highly Recommended</span>
+          </div>
+          <p class="backend-cta-body">
+            This Sandbox operates on a highly optimized <strong>Scikit-Learn pipeline</strong>. We use NLTK for stop-word removal and lemmatization, a <strong>TF-IDF vectorizer</strong> for feature extraction, and a fast <strong>Logistic Regression</strong> model for probabilistic classification.
+          </p>
+          <div class="backend-cta-features">
+            <div class="backend-cta-feat-item">
+              <span class="backend-cta-feat-icon">⚡</span>
+              <span>Sub-millisecond inference</span>
+            </div>
+            <div class="backend-cta-feat-item">
+              <span class="backend-cta-feat-icon">🔒</span>
+              <span>Thread-safe worker pools</span>
+            </div>
+          </div>
+          <div class="pulse-ring-cta" style="margin-bottom: 0.85rem;">
+            <a href="/docs" target="_blank" class="backend-cta-btn">
+              Explore the API Documentation
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </a>
+          </div>
+          <div class="pulse-ring-cta">
+            <a href="/data/download" target="_blank" class="backend-cta-btn" style="background: #334155; background-image: none; box-shadow: 0 4px 12px rgba(51, 65, 85, 0.2);">
+              Download Training Dataset
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+            </a>
+          </div>
         </div>
-        <p class="backend-cta-body">
-          This playground is a client simulator. To inspect the production-grade FastAPI code, verify sliding-window rate limit rules, review Pydantic request models, or run manual test queries, access the fully interactive documentation.
-        </p>
-        <div class="backend-cta-features">
-          <div class="backend-cta-feat-item">
-            <span class="backend-cta-feat-icon">🛡️</span>
-            <span>API Key Header Auth</span>
-          </div>
-          <div class="backend-cta-feat-item">
-            <span class="backend-cta-feat-icon">⚡</span>
-            <span>Sub-millisecond Latency</span>
-          </div>
-          <div class="backend-cta-feat-item">
-            <span class="backend-cta-feat-icon">⚙️</span>
-            <span>Pydantic v2 Models</span>
-          </div>
-          <div class="backend-cta-feat-item">
-            <span class="backend-cta-feat-icon">📦</span>
-            <span>Rate Limiter Guards</span>
-          </div>
-        </div>
-        <a href="/docs" target="_blank" class="backend-cta-btn">
-          <span class="pulse-ring-cta">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 2px;">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-              <polyline points="15 3 21 3 21 9" />
-              <line x1="10" y1="14" x2="21" y2="3" />
-            </svg>
-          </span>
-          <span>Open Interactive Swagger Docs</span>
-        </a>
       </div>
     </div>
 
@@ -1752,17 +1752,29 @@ console.log(data.category);  <span style="color: #5c6370; font-style: italic;">/
 
       try {
         const start = performance.now();
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        
         let response = await fetch('/predict', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'x-api-key': activeApiKey
           },
-          body: JSON.stringify({ text })
+          body: JSON.stringify({ text }),
+          signal: controller.signal
         });
         
+        clearTimeout(timeoutId);
         const elapsed = (performance.now() - start).toFixed(1);
-        const data = await response.json();
+        
+        let data;
+        try {
+            data = await response.json();
+        } catch (jsonErr) {
+            throw new Error('Server returned an invalid format. It might be currently restarting.');
+        }
 
         if (response.ok) {
           // Hide placeholder, display results
@@ -1810,7 +1822,11 @@ console.log(data.category);  <span style="color: #5c6370; font-style: italic;">/
           alert('API Error: ' + (data.error ? data.error.message : 'Unknown inference error. Please check rate limiting or headers.'));
         }
       } catch (err) {
-        alert('Network execution exception: ' + err.message);
+        if (err.name === 'AbortError') {
+            alert('Request timed out! The server is currently deploying an update and is unreachable. Please wait 1-2 minutes and try again.');
+        } else {
+            alert('Execution exception: ' + err.message);
+        }
       } finally {
         // Reset loading states
         btnSubmit.disabled = false;

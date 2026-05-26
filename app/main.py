@@ -294,6 +294,15 @@ async def health_check():
     )
 
 
+@app.get("/data/download", tags=["System & Diagnostics"])
+async def download_data():
+    """Download the dynamically generated synthetic training dataset."""
+    data_path = settings.BASE_DIR / "data" / "training_data.csv"
+    if data_path.exists():
+        return FileResponse(data_path, filename="nextbill_training_data.csv", media_type="text/csv")
+    raise HTTPException(status_code=404, detail="Training data not found. Ensure the model has been trained.")
+
+
 @app.get("/categories", tags=["Classification Taxonomy"])
 async def list_categories():
     """List all supported expense classification categories."""
