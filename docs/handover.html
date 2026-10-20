@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NextBill Classifier Handover</title>
+<style>
+:root{--bg:#f7f8fa;--card:#fff;--ink:#1b1f24;--mute:#5b6470;--line:#e3e6ea;--acc:#2563eb;--acc-soft:#e8efff;--ok:#16a34a;--warn:#b45309;--code:#0f172a;--code-ink:#e2e8f0}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1117;--card:#161b22;--ink:#e6edf3;--mute:#9aa4b1;--line:#30363d;--acc:#6ea8ff;--acc-soft:#1b2a44;--code:#0b0f14}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:1040px;margin:0 auto;padding:0 16px 80px;display:grid;grid-template-columns:220px 1fr;gap:32px}
+header{grid-column:1/-1;padding:48px 0 16px;border-bottom:1px solid var(--line)}
+header h1{margin:0 0 6px;font-size:2rem;letter-spacing:-.02em}
+header p{margin:0;color:var(--mute)}
+.pills{margin-top:14px;display:flex;flex-wrap:wrap;gap:8px}
+.pill{background:var(--acc-soft);color:var(--acc);border-radius:999px;padding:3px 12px;font-size:.82rem;font-weight:600}
+nav{position:sticky;top:16px;align-self:start;font-size:.92rem}
+nav a{display:block;color:var(--mute);text-decoration:none;padding:5px 10px;border-left:2px solid var(--line)}
+nav a:hover{color:var(--acc);border-color:var(--acc)}
+main section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:24px 28px;margin-top:24px}
+h2{margin:0 0 12px;font-size:1.3rem}
+h2 span{color:var(--acc);font-variant-numeric:tabular-nums;margin-right:8px}
+table{width:100%;border-collapse:collapse;font-size:.92rem;margin:12px 0}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--mute);font-weight:600;font-size:.8rem;text-transform:uppercase;letter-spacing:.04em}
+code{background:var(--acc-soft);padding:1px 6px;border-radius:5px;font-size:.88em}
+pre{background:var(--code);color:var(--code-ink);padding:16px;border-radius:10px;overflow-x:auto;font-size:.86rem;line-height:1.5}
+pre code{background:none;padding:0}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:16px 0}
+.flow div{border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:var(--bg);font-size:.88rem}
+.flow b{color:var(--acc)}
+.flow i{color:var(--mute);font-style:normal}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:12px 0}
+.kpi{border:1px solid var(--line);border-radius:10px;padding:14px}
+.kpi strong{display:block;font-size:1.6rem}
+.kpi small{color:var(--mute)}
+.ok{color:var(--ok)}
+.note{border-left:4px solid var(--warn);background:var(--bg);padding:10px 14px;border-radius:0 8px 8px 0;font-size:.92rem}
+ol li,ul li{margin:4px 0}
+@media (max-width:760px){.wrap{grid-template-columns:1fr}nav{display:none}main section{padding:18px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>NextBill Invoice Expense Classifier</h1>
+  <p>Knowledge-transfer guide for developers taking over this service.</p>
+  <div class="pills"><span class="pill">FastAPI</span><span class="pill">scikit-learn</span><span class="pill">50 tests passing</span><span class="pill">94.4% realistic accuracy</span><span class="pill">No rule-based logic</span></div>
+</header>
+
+<nav>
+  <a href="#problem">1. Problem</a><a href="#start">2. Quick start</a><a href="#arch">3. Architecture</a>
+  <a href="#layout">4. Project layout</a><a href="#ml">5. ML pipeline</a><a href="#api">6. API</a>
+  <a href="#eval">7. Evaluation</a><a href="#ops">8. Operations</a><a href="#test">9. Testing & CI</a><a href="#next">10. Next steps</a>
+</nav>
+
+<main>
+<section id="problem"><h2><span>01</span>Problem & approach</h2>
+<p>Classify free-text invoice lines into an expense category so bookkeeping can be automated.</p>
+<table>
+<tr><th>Input</th><td><code>{"text": "Blue Dart courier charges for warehouse delivery"}</code></td></tr>
+<tr><th>Output</th><td><code>{"category": "Logistics", "confidence": 0.93, "alternatives": [...]}</code></td></tr>
+<tr><th>Classes</th><td>Logistics · Office Supplies · Cloud/Software · Utilities · Travel · Inventory · <b>Unknown</b> (low confidence → human review)</td></tr>
+<tr><th>Model</th><td>Fully learned. TF-IDF word + character n-grams → best of 3 linear classifiers chosen by cross-validation. No keyword rules.</td></tr>
+<tr><th>Why</th><td>Short, brand-heavy text (BESCOM, Zoho, Delhivery). Sparse linear models: ~1 ms inference, ~1 MB artifact, explainable, retrain in seconds. A transformer adds hundreds of MB for little gain on 6 classes.</td></tr>
+</table></section>
+
+<section id="start"><h2><span>02</span>Quick start</h2>
+<pre><code>pip install -r requirements.txt
+python -m data.generate_data      # synthetic data  -> data/training_data.csv
+python -m training.train_model    # train + eval    -> training/trained_model.pkl, metrics.json
+uvicorn app.main:app --reload     # http://localhost:8000  (UI)   /docs (Swagger)</code></pre>
+<p>Or <code>make setup &amp;&amp; make run</code>, or <code>docker compose up --build</code>.</p></section>
+
+<section id="arch"><h2><span>03</span>Architecture</h2>
+<div class="flow">
+  <div>Client / UI / SDK</div><i>→</i><div>Rate limit<br><small>60/min/IP</small></div><i>→</i><div>API key<br><small>if set</small></div><i>→</i>
+  <div><b>sklearn Pipeline</b><br><small>clean_text → word+char TF-IDF → classifier</small></div><i>→</i>
+  <div>conf ≥ 0.40?<br><small>yes: category · no: Unknown</small></div>
+</div>
+<div class="flow"><div>Unknown / wrong</div><i>→</i><div>POST /feedback</div><i>→</i><div>data/feedback.csv</div><i>→</i><div>next training run</div></div>
+<table>
+<tr><th>Decision</th><th>Reason</th></tr>
+<tr><td>Preprocessing inside the Pipeline</td><td>Same code for training and serving → no train/serve skew.</td></tr>
+<tr><td><code>run_in_threadpool</code></td><td>sklearn is CPU-bound; keeps the async loop responsive.</td></tr>
+<tr><td>Batch = one <code>predict_proba</code></td><td>Vectorized; much cheaper than N calls.</td></tr>
+<tr><td><code>Unknown</code> below 0.40</td><td>A wrong auto-booking costs more than a manual review.</td></tr>
+<tr><td>No NLTK</td><td>No runtime downloads; char n-grams cover plurals and typos.</td></tr>
+</table></section>
+
+<section id="layout"><h2><span>04</span>Project layout</h2>
+<table>
+<tr><th>Path</th><th>Responsibility</th></tr>
+<tr><td><code>app/main.py</code></td><td>Endpoints, auth, rate limit, live metrics, feedback storage, error format</td></tr>
+<tr><td><code>app/classifier.py</code></td><td>Loads pipeline; <code>predict_many()</code> → category, confidence, top-3, tokens</td></tr>
+<tr><td><code>app/models.py</code></td><td>Pydantic schemas = input validation at the trust boundary</td></tr>
+<tr><td><code>app/config.py</code></td><td>All settings; overridable via env / <code>.env</code></td></tr>
+<tr><td><code>preprocessing/text_processor.py</code></td><td><code>clean_text()</code>: lowercase, alphabetic tokens, stopwords</td></tr>
+<tr><td><code>training/train_model.py</code></td><td>Dedupe → CV model selection → held-out + realistic eval → save</td></tr>
+<tr><td><code>data/eval_realistic.csv</code></td><td>36 hand-written invoices. Never trained on. The benchmark that matters.</td></tr>
+<tr><td><code>sdk/client.py</code></td><td>Zero-dependency Python client</td></tr>
+<tr><td><code>tests/</code></td><td>API, classifier, preprocessing, SDK, realistic-accuracy gate</td></tr>
+</table></section>
+
+<section id="ml"><h2><span>05</span>ML pipeline</h2>
+<ol>
+<li><b>Load</b> training data + any human feedback; drop unknown labels.</li>
+<li><b>Deduplicate</b>: the generator emits ~30% duplicates that would leak across the split.</li>
+<li><b>Stratified 80/20 split</b> (seed 42).</li>
+<li><b>Select model</b> with 5-fold stratified CV on macro-F1:
+<table><tr><th>Candidate</th><th>Classifier</th></tr>
+<tr><td><code>logreg</code></td><td>LogisticRegression, C=10, class_weight=balanced</td></tr>
+<tr><td><code>linear_svc_calibrated</code></td><td>LinearSVC wrapped in CalibratedClassifierCV (true probabilities)</td></tr>
+<tr><td><code>complement_nb</code></td><td>ComplementNB, alpha=0.3</td></tr></table>
+All share features: word (1–2)-gram + char_wb (2–5)-gram TF-IDF, sublinear tf.</li>
+<li><b>Report</b> classification report + confusion matrix on the 20%.</li>
+<li><b>Realistic eval</b> on hand-written set.</li>
+<li><b>Refit winner on all unique data</b> → <code>trained_model.pkl</code>; scores → <code>metrics.json</code>.</li>
+</ol></section>
+
+<section id="api"><h2><span>06</span>API reference</h2>
+<p>Auth is off by default (assignment spec). Set <code>API_KEY</code> to require <code>x-api-key</code>; missing or wrong → <code>401</code>.</p>
+<table>
+<tr><th>Endpoint</th><th>Body</th><th>Returns</th></tr>
+<tr><td><code>POST /predict</code></td><td><code>{"text"}</code> 3–5000 chars</td><td>category, confidence, alternatives, processed_tokens, processing_time_ms</td></tr>
+<tr><td><code>POST /predict/batch</code></td><td><code>{"texts": [...]}</code> 1–100</td><td>predictions[], total_processing_time_ms</td></tr>
+<tr><td><code>POST /feedback</code></td><td>original_text, predicted_category, actual_category</td><td>status, feedback_rows</td></tr>
+<tr><td><code>GET /metrics</code></td><td>–</td><td>live counters + model_evaluation</td></tr>
+<tr><td><code>GET /health</code></td><td>–</td><td>status, model_loaded, version, categories</td></tr>
+<tr><td><code>GET /categories</code></td><td>–</td><td>supported categories</td></tr>
+</table>
+<pre><code>curl -X POST localhost:8000/predict -H "Content-Type: application/json" \
+     -d '{"text": "AWS monthly cloud hosting bill"}'
+# {"category":"Cloud/Software","confidence":0.9...,"alternatives":[...]}</code></pre>
+<p>Errors: <code>{"success": false, "error": {"code", "message"}}</code>; internal details never leak.</p></section>
+
+<section id="eval"><h2><span>07</span>Evaluation</h2>
+<div class="kpis">
+<div class="kpi"><strong>1.00</strong><small>Synthetic CV macro-F1 (all 3 models)</small></div>
+<div class="kpi"><strong>1.00</strong><small>Synthetic held-out accuracy</small></div>
+<div class="kpi"><strong class="ok">94.4%</strong><small>Hand-written realistic accuracy</small></div>
+</div>
+<p class="note">Synthetic data is template-based, so 1.00 only proves the plumbing. <b>Trust the realistic number.</b> Current misses: "Jio postpaid mobile bill" → Inventory; "Ball pens notebooks envelopes" → Unknown. The test suite fails if realistic accuracy drops below 75%.</p></section>
+
+<section id="ops"><h2><span>08</span>Operations</h2>
+<h3>Feedback loop</h3>
+<p>Corrections → <code>POST /feedback</code> → <code>data/feedback.csv</code> → merged on the next <code>python -m training.train_model</code>. Run that as a scheduled job.</p>
+<h3>Configuration</h3>
+<table>
+<tr><th>Variable</th><th>Default</th><th>Meaning</th></tr>
+<tr><td><code>API_KEY</code></td><td>empty</td><td>Empty = open. Required when <code>ENVIRONMENT=production</code> (startup fails otherwise).</td></tr>
+<tr><td><code>CONFIDENCE_THRESHOLD</code></td><td>0.40</td><td>Below → Unknown</td></tr>
+<tr><td><code>MODEL_PATH</code></td><td>training/trained_model.pkl</td><td>Model artifact</td></tr>
+<tr><td><code>ALLOWED_ORIGINS</code></td><td>localhost</td><td>CORS allow-list</td></tr>
+</table>
+<h3>Docker</h3>
+<p>Image installs deps, generates data and trains at build time, serves uvicorn on <code>:8000</code> with a <code>/health</code> healthcheck.</p></section>
+
+<section id="test"><h2><span>09</span>Testing & CI</h2>
+<pre><code>pytest -q                                  # 50 tests
+ruff check . &amp;&amp; ruff format --check .      # lint + format</code></pre>
+<p>GitHub Actions (<code>.github/workflows/ci.yml</code>): install → generate data → train → lint → format check → tests.</p></section>
+
+<section id="next"><h2><span>10</span>Known limits & next steps</h2>
+<table>
+<tr><th>Limit</th><th>Upgrade path</th></tr>
+<tr><td>Synthetic training data</td><td>Train on labelled real invoices; keep growing the frozen realistic benchmark.</td></tr>
+<tr><td>Feedback CSV + process lock</td><td>DB table once running multiple workers.</td></tr>
+<tr><td>In-memory rate limiter</td><td>Redis or API-gateway limiting for multi-instance deploys.</td></tr>
+<tr><td>Manual retraining</td><td>Nightly job: train → compare realistic accuracy → promote only if better.</td></tr>
+<tr><td>English only</td><td>Add Hindi/Hinglish samples.</td></tr>
+</table></section>
+</main>
+</div>
+</body>
+</html>

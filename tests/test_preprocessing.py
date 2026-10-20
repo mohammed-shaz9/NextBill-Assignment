@@ -36,8 +36,5 @@ class TestCleanText:
         result = clean_text("courier delivery warehouse")
         assert "courier" in result or "delivery" in result or "warehouse" in result
 
-    def test_lemmatization(self):
-        """Words should be lemmatized (e.g., 'charges' → 'charge')."""
-        result = clean_text("shipping charges and deliveries")
-        # Lemmatizer should reduce 'deliveries' → 'delivery'
-        assert "delivery" in result or "deliveries" not in result
+    def test_keeps_brand_tokens(self):
+        assert clean_text("Blue Dart courier, Rs. 450") == "blue dart courier"

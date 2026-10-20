@@ -1383,7 +1383,7 @@
           <span class="backend-cta-recommend">Highly Recommended</span>
         </div>
         <p class="backend-cta-body">
-          This Sandbox operates on a highly optimized <strong>Scikit-Learn pipeline</strong>. We use NLTK for stop-word removal and lemmatization, a <strong>TF-IDF vectorizer</strong> for feature extraction, and a fast <strong>Logistic Regression</strong> model for probabilistic classification.
+          This Sandbox operates on a highly optimized <strong>Scikit-Learn pipeline</strong>. Regex cleaning + stop-word removal, <strong>word + character n-gram TF-IDF</strong> features, and the best of Logistic Regression / calibrated LinearSVC / Complement NB picked by 5-fold CV.
         </p>
         <div class="backend-cta-features">
           <div class="backend-cta-feat-item">
@@ -1812,6 +1812,15 @@ console.log(data.category);  <span style="color: #5c6370; font-style: italic;">/
             tokenBox.appendChild(badge);
           }
           
+          (data.alternatives || []).forEach(a => {
+            const badge = document.createElement('span');
+            badge.className = 'token-badge';
+            badge.innerText = `${a.category} ${(a.confidence * 100).toFixed(1)}%`;
+            badge.title = 'Top-3 model alternatives';
+            badge.style.opacity = '0.75';
+            tokenBox.appendChild(badge);
+          });
+
           latencyVal.innerText = elapsed + ' ms';
           latencyVal.style.display = 'block';
         } else {

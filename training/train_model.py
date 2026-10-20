@@ -1,56 +1,105 @@
 """
-Model Training Script for Invoice Expense Classification
-Uses a unified scikit-learn Pipeline and GridSearchCV for hyperparameter tuning.
+Model training for invoice expense classification.
+
+1. Deduplicate (raw synthetic data is ~30% duplicates -> leaks into test set).
+2. Compare candidate pipelines with stratified 5-fold CV.
+3. Refit the winner, report on a held-out split, save model + metrics.json.
 """
 
+import json
+import logging
 import os
 import sys
+
 import joblib
-import logging
 import pandas as pd
-from sklearn.pipeline import Pipeline
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    confusion_matrix,
+    f1_score,
+)
+from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
+from sklearn.naive_bayes import ComplementNB
+from sklearn.pipeline import FeatureUnion, Pipeline
+from sklearn.svm import LinearSVC
 
-# Ensure project root is importable
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from preprocessing.text_processor import clean_text  # noqa: E402
-from app.config import settings  # noqa: E402
+from app.config import settings
+from preprocessing.text_processor import clean_text
 
-# Configure structured logging
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)]
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger("training")
 
 
-def _print_confusion_matrix(cm, labels) -> None:
-    """Pretty-print a text-based confusion matrix."""
-    col_width = max(len(l) for l in labels) + 2
-    header = " " * col_width + "".join(l[:8].ljust(10) for l in labels)
-    logger.info(header)
-    for i, row in enumerate(cm):
-        row_str = labels[i].ljust(col_width) + "".join(str(v).ljust(10) for v in row)
-        logger.info(row_str)
+def _features():
+    """Word n-grams for semantics + char n-grams for brands, typos, plurals."""
+    return FeatureUnion(
+        [
+            (
+                "word",
+                TfidfVectorizer(
+                    preprocessor=clean_text,
+                    ngram_range=(1, 2),
+                    sublinear_tf=True,
+                    min_df=1,
+                ),
+            ),
+            (
+                "char",
+                TfidfVectorizer(
+                    preprocessor=clean_text,
+                    analyzer="char_wb",
+                    ngram_range=(2, 5),
+                    sublinear_tf=True,
+                ),
+            ),
+        ]
+    )
 
 
-def train() -> None:
-    """Run the training pipeline with Grid Search."""
-    # 1. Load data
-    data_path = settings.DATA_PATH
-    if not os.path.exists(data_path):
-        logger.error("[ERROR] Training data not found. Run `python -m data.generate_data` first.")
+def candidates() -> dict[str, Pipeline]:
+    return {
+        "logreg": Pipeline(
+            [
+                ("features", _features()),
+                (
+                    "clf",
+                    LogisticRegression(C=10, max_iter=2000, class_weight="balanced"),
+                ),
+            ]
+        ),
+        "linear_svc_calibrated": Pipeline(
+            [
+                ("features", _features()),
+                ("clf", CalibratedClassifierCV(LinearSVC(C=0.5), cv=3)),
+            ]
+        ),
+        "complement_nb": Pipeline([("features", _features()), ("clf", ComplementNB(alpha=0.3))]),
+    }
+
+
+def train() -> dict:
+    if not os.path.exists(settings.DATA_PATH):
+        logger.error("Training data not found. Run `python -m data.generate_data` first.")
         sys.exit(1)
 
-    df = pd.read_csv(data_path)
-    logger.info("[DATA] Loaded %d samples across %d categories", len(df), df["category"].nunique())
-    logger.info("Category distribution:\n%s", df["category"].value_counts().to_string())
+    df = pd.read_csv(settings.DATA_PATH).dropna()
+    feedback = settings.BASE_DIR / "data" / "feedback.csv"
+    if feedback.exists():  # human-corrected labels from POST /feedback
+        df = pd.concat([df, pd.read_csv(feedback)[["text", "category"]]])
+    n_raw = len(df)
+    df = df[df["category"].isin(settings.CATEGORIES)]
+    df = df.loc[~df["text"].str.lower().str.strip().duplicated()]
+    logger.info("Loaded %d rows -> %d unique", n_raw, len(df))
 
-    # 2. Split data (raw text, preprocessing runs inside the pipeline)
     X_train, X_test, y_train, y_test = train_test_split(
         df["text"],
         df["category"],
@@ -58,59 +107,47 @@ def train() -> None:
         random_state=42,
         stratify=df["category"],
     )
-    logger.info("   Train size: %d | Test size: %d", len(X_train), len(X_test))
 
-    # 3. Define Pipeline
-    # Using clean_text as the preprocessor ensures that text preprocessing is done
-    # inside the pipeline, preventing leakage and making inference transparent.
-    pipeline = Pipeline([
-        ("tfidf", TfidfVectorizer(preprocessor=clean_text)),
-        ("clf", LogisticRegression(max_iter=1000, random_state=42))
-    ])
+    cv = StratifiedKFold(5, shuffle=True, random_state=42)
+    scores = {}
+    for name, pipe in candidates().items():
+        scores[name] = cross_val_score(
+            pipe, X_train, y_train, cv=cv, scoring="f1_macro", n_jobs=-1
+        ).mean()
+        logger.info("CV macro-F1  %-24s %.4f", name, scores[name])
 
-    # 4. Hyperparameter Grid
-    param_grid = {
-        "tfidf__ngram_range": [(1, 1), (1, 2)],
-        "tfidf__max_features": [3000, 5000],
-        "clf__C": [0.1, 1.0, 10.0]
-    }
-
-    logger.info("[STEP] Running GridSearchCV for parameter tuning...")
-    grid_search = GridSearchCV(
-        pipeline,
-        param_grid,
-        cv=5,
-        scoring="f1_weighted",
-        n_jobs=-1,
-        verbose=1
+    best_name = max(scores, key=scores.get)
+    best = candidates()[best_name].fit(X_train, y_train)
+    y_pred = best.predict(X_test)
+    logger.info("Selected %s\n%s", best_name, classification_report(y_test, y_pred))
+    labels = sorted(y_test.unique())
+    logger.info(
+        "Confusion matrix (rows=true, cols=pred) %s\n%s",
+        labels,
+        confusion_matrix(y_test, y_pred, labels=labels),
     )
 
-    grid_search.fit(X_train, y_train)
-
-    logger.info("[BEST] Optimal Parameters: %s", grid_search.best_params_)
-    logger.info("[BEST] Best 5-fold CV weighted-F1: %.4f", grid_search.best_score_)
-
-    # 5. Evaluate on Test Set
-    best_pipeline = grid_search.best_estimator_
-    y_pred = best_pipeline.predict(X_test)
-
-    # Classification report
-    report = classification_report(y_test, y_pred)
-    logger.info("Test set classification report:\n%s", report)
-
-    # Confusion matrix
-    labels = sorted(y_test.unique())
-    cm = confusion_matrix(y_test, y_pred, labels=labels)
-    logger.info("Confusion Matrix:")
-    _print_confusion_matrix(cm, labels)
-
-    # 6. Save Pipeline
-    model_path = settings.MODEL_PATH
-    os.makedirs(os.path.dirname(model_path), exist_ok=True)
-    
-    joblib.dump(best_pipeline, model_path)
-    logger.info("[SAVE] Best pipeline saved to %s", model_path)
-    logger.info("[OK] Model training and serialization complete.")
+    metrics = {
+        "model": best_name,
+        "cv_macro_f1": {k: round(float(v), 4) for k, v in scores.items()},
+        "test_accuracy": round(accuracy_score(y_test, y_pred), 4),
+        "test_macro_f1": round(f1_score(y_test, y_pred, average="macro"), 4),
+        "n_train": len(X_train),
+        "n_test": len(X_test),
+    }
+    # Ship a model trained on ALL unique data; held-out numbers above are the honest estimate.
+    final = candidates()[best_name].fit(df["text"], df["category"])
+    real = settings.BASE_DIR / "data" / "eval_realistic.csv"
+    if real.exists():  # hand-written, out-of-template text: the number that matters
+        r = pd.read_csv(real)
+        metrics["realistic_accuracy"] = round(
+            accuracy_score(r["category"], final.predict(r["text"])), 4
+        )
+    os.makedirs(os.path.dirname(settings.MODEL_PATH), exist_ok=True)
+    joblib.dump(final, settings.MODEL_PATH)
+    settings.METRICS_PATH.write_text(json.dumps(metrics, indent=2))
+    logger.info("Saved %s and %s: %s", settings.MODEL_PATH, settings.METRICS_PATH, metrics)
+    return metrics
 
 
 if __name__ == "__main__":

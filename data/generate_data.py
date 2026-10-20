@@ -11,6 +11,7 @@ Usage:
 
 import os
 import random
+
 import pandas as pd
 
 # ---------------------------------------------------------------------------
@@ -18,7 +19,6 @@ import pandas as pd
 # ---------------------------------------------------------------------------
 
 CATEGORY_TEMPLATES: dict[str, list[str]] = {
-
     "Logistics": [
         "Blue Dart courier charges for warehouse delivery",
         "DTDC express parcel delivery charges",
@@ -41,7 +41,6 @@ CATEGORY_TEMPLATES: dict[str, list[str]] = {
         "E-way bill compliant transporter charges for goods",
         "Bike delivery charges for same-day dispatch",
     ],
-
     "Office Supplies": [
         "A4 printing paper ream pack for office use",
         "HP ink cartridge and toner replacement",
@@ -64,7 +63,6 @@ CATEGORY_TEMPLATES: dict[str, list[str]] = {
         "Pen drive and external hard disk purchase",
         "First aid kit and safety supplies for office",
     ],
-
     "Cloud/Software": [
         "AWS monthly cloud hosting and EC2 instance bill",
         "Google Cloud Platform compute engine subscription",
@@ -87,7 +85,6 @@ CATEGORY_TEMPLATES: dict[str, list[str]] = {
         "Freshdesk customer support software license",
         "Razorpay payment gateway integration charges",
     ],
-
     "Utilities": [
         "Monthly electricity bill for office premises",
         "BSNL broadband internet connection charges",
@@ -110,7 +107,6 @@ CATEGORY_TEMPLATES: dict[str, list[str]] = {
         "Waste disposal and garbage collection charges",
         "Street lighting and compound security charges",
     ],
-
     "Travel": [
         "Flight tickets Delhi to Mumbai for client meeting",
         "Rajdhani Express train fare for business travel",
@@ -133,7 +129,6 @@ CATEGORY_TEMPLATES: dict[str, list[str]] = {
         "Rental car with driver for week-long project site",
         "Conference registration and travel grant",
     ],
-
     "Inventory": [
         "Purchase of raw cotton bales from supplier",
         "Steel bars and TMT rods for manufacturing",
@@ -164,7 +159,7 @@ CATEGORY_TEMPLATES: dict[str, list[str]] = {
 
 AUGMENT_PATTERNS = [
     "{text}",
-    "{text}",                                           # raw (2x weight)
+    "{text}",  # raw (2x weight)
     "Invoice for {text}",
     "Bill: {text}",
     "Payment towards {text}",
@@ -199,9 +194,7 @@ def generate_data(output_path: str | None = None) -> pd.DataFrame:
 
     # Default output path
     if output_path is None:
-        output_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "training_data.csv"
-        )
+        output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "training_data.csv")
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     df.to_csv(output_path, index=False)

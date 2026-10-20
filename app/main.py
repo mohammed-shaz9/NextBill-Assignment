@@ -8,41 +8,42 @@ Features:
   - Custom Global Exception Handling
 """
 
-import time
+import csv
+import json
 import logging
-import sys
+import secrets
 import threading
-import asyncio
-import uuid
+import time
 from contextlib import asynccontextmanager
 from functools import lru_cache
 
-from fastapi import FastAPI, HTTPException, Depends, Security, Request, status
+from fastapi import Depends, FastAPI, HTTPException, Request, Security, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.security import APIKeyHeader
 from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import APIKeyHeader
-from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
 
+from app.classifier import InvoiceClassifier
 from app.config import settings
 from app.models import (
-    PredictionRequest,
-    PredictionResponse,
     BatchPredictionRequest,
     BatchPredictionResponse,
+    FeedbackRequest,
+    FeedbackResponse,
     HealthResponse,
     MetricsResponse,
-    FeedbackRequest,
-    FeedbackResponse
+    PredictionRequest,
+    PredictionResponse,
 )
-from app.classifier import InvoiceClassifier
 
 # Setup Logger
 logger = logging.getLogger("api")
 BOOT_TIME = time.time()
 
+
 # ---------- Dependency Injection & Caching ----------
-@lru_cache()
+@lru_cache
 def get_classifier() -> InvoiceClassifier:
     """
     Dependency provider that caches the InvoiceClassifier instance.
@@ -59,22 +60,28 @@ def get_classifier() -> InvoiceClassifier:
 
 
 # ---------- Security & Authentication ----------
-api_key_header = APIKeyHeader(name=settings.API_KEY_NAME, auto_error=True)
+api_key_header = APIKeyHeader(name=settings.API_KEY_NAME, auto_error=False)
 
 
-async def verify_api_key(api_key: str = Security(api_key_header)) -> str:
-    """
-    Validates the client's API Key against configured secret.
-    Allows 'nextbill_public_demo' for public Sandbox UI access.
-    """
-    valid_keys = {settings.API_KEY, "nextbill_public_demo"}
-    if api_key not in valid_keys:
-        logger.warning("Unauthorized access attempt with invalid API Key")
+async def verify_api_key(api_key: str | None = Security(api_key_header)) -> None:
+    """Enforced only when API_KEY is configured; otherwise open (assignment spec)."""
+    if settings.API_KEY and not (api_key and secrets.compare_digest(api_key, settings.API_KEY)):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Could not validate credentials: Invalid API Key.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing API key.",
         )
-    return api_key
+
+
+# ---------- Runtime metrics (real counters) ----------
+_stats = {"n": 0, "total_ms": 0.0, "unknown": 0}
+_stats_lock = threading.Lock()
+
+
+def _record(results: list[dict]) -> None:
+    with _stats_lock:
+        _stats["n"] += len(results)
+        _stats["total_ms"] += sum(r["processing_time_ms"] for r in results)
+        _stats["unknown"] += sum(r["category"] == "Unknown" for r in results)
 
 
 # ---------- In-Memory Rate Limiting ----------
@@ -83,12 +90,13 @@ class ThreadSafeRateLimiter:
     A thread-safe, memory-safe sliding-window rate limiter per client IP.
     Regularly prunes expired database entries to prevent memory leaks.
     """
+
     def __init__(self, limit: int = 60, window_seconds: float = 60.0):
         self.limit = limit
         self.window_seconds = window_seconds
         self.db: dict[str, list[float]] = {}
         self.lock = threading.Lock()
-        
+
         # FAANG-grade: Background pruning thread to avoid hot-path global lock contention
         self._prune_thread = threading.Thread(target=self._prune_loop, daemon=True)
         self._prune_thread.start()
@@ -123,6 +131,7 @@ class ThreadSafeRateLimiter:
             self.db[client_ip] = timestamps
             return False
 
+
 # Initialize global rate limiter instance
 _rate_limiter_instance = ThreadSafeRateLimiter(limit=60, window_seconds=60.0)
 
@@ -148,17 +157,15 @@ async def lifespan(app: FastAPI):
     and runs production security validation constraints.
     """
     logger.info("Initializing API application...")
-    
-    # Security Guard: Stop server if default dev keys are deployed in production env
-    if settings.ENVIRONMENT == "production" and settings.API_KEY == "nextbill_dev_secret_key_2026":
-        logger.critical("SECURITY BREACH: Default developer API Key cannot be used in a production environment!")
-        raise RuntimeError("Security configuration error: Default dev API Key detected in production mode.")
+
+    if settings.ENVIRONMENT == "production" and not settings.API_KEY:
+        raise RuntimeError("API_KEY must be set when ENVIRONMENT=production.")
 
     try:
         # Pre-warm the classifier
         clf = get_classifier()
         logger.info("[OK] Model pre-loaded successfully (version=%s)", clf.version)
-    except Exception as exc:
+    except HTTPException as exc:
         logger.warning("[WARN] Server starting in degraded mode: %s", exc)
     yield
     logger.info("Shutting down API application...")
@@ -178,8 +185,8 @@ tags_metadata = [
         "description": "Internal telemetry, health checks, and Prometheus-style metric aggregations for infrastructure monitoring.",
     },
     {
-        "name": "MLOps (Beta)",
-        "description": "Data flywheel endpoints for Reinforcement Learning from Human Feedback (RLHF) and triggered pipeline retraining.",
+        "name": "MLOps",
+        "description": "Human-correction feedback stored for the next retraining run.",
     },
 ]
 
@@ -192,7 +199,7 @@ Provides extremely low-latency, scalable NLP invoice parsing capabilities using 
 
 ### Enterprise Features
 * **Thread-Safe Architecture:** Handles O(N) inference tasks in background worker pools.
-* **RLHF Loop:** Allows frontends to submit human-corrected ground truth to improve model drift.
+* **Feedback loop:** human corrections are stored and folded into the next training run.
 * **Security & Rate Limiting:** Global IP-based sliding window limiter prevents DDoS saturation.
 """,
     version=settings.API_VERSION,
@@ -206,7 +213,7 @@ Provides extremely low-latency, scalable NLP invoice parsing capabilities using 
         "url": "https://www.apache.org/licenses/LICENSE-2.0.html",
     },
     lifespan=lifespan,
-    dependencies=[Depends(rate_limiter)]
+    dependencies=[Depends(rate_limiter)],
 )
 
 # CORS configuration (Restricted to configured origins)
@@ -230,7 +237,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
             "error": {
                 "code": exc.status_code,
                 "message": exc.detail,
-            }
+            },
         },
     )
 
@@ -245,16 +252,17 @@ async def generic_exception_handler(request: Request, exc: Exception):
             "success": False,
             "error": {
                 "code": 500,
-                "message": f"Internal server error: {str(exc)}",
-            }
+                "message": "Internal server error.",
+            },
         },
     )
 
 
 # ---------- Endpoints ----------
 
+
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
-async def root():
+def root():
     """Welcome endpoint serving the Sandbox UI Developer Console."""
     index_path = settings.BASE_DIR / "app" / "index.html"
     try:
@@ -282,7 +290,7 @@ async def health_check():
         clf = get_classifier()
         model_loaded = True
         model_version = clf.version
-    except Exception:
+    except HTTPException:
         model_loaded = False
         model_version = "N/A"
 
@@ -300,7 +308,10 @@ async def download_data():
     data_path = settings.BASE_DIR / "data" / "training_data.csv"
     if data_path.exists():
         return FileResponse(data_path, filename="nextbill_training_data.csv", media_type="text/csv")
-    raise HTTPException(status_code=404, detail="Training data not found. Ensure the model has been trained.")
+    raise HTTPException(
+        status_code=404,
+        detail="Training data not found. Ensure the model has been trained.",
+    )
 
 
 @app.get("/categories", tags=["Classification Taxonomy"])
@@ -313,107 +324,91 @@ async def list_categories():
     "/predict",
     response_model=PredictionResponse,
     dependencies=[Depends(verify_api_key)],
-    tags=["Inference Engine"]
+    tags=["Inference Engine"],
 )
 async def predict(
-    request: PredictionRequest,
-    classifier: InvoiceClassifier = Depends(get_classifier)
+    request: PredictionRequest, classifier: InvoiceClassifier = Depends(get_classifier)
 ):
-    """
-    Classify a single invoice text. Requires 'x-api-key' header.
-    
-    Example:
-        x-api-key: nextbill_dev_secret_key_2026
-    """
-    # Offload blocking ML pipeline inference to the Starlette worker threadpool
-    category, confidence, processing_time_ms, processed_tokens = await run_in_threadpool(
-        classifier.predict, request.text
-    )
-    return PredictionResponse(
-        category=category,
-        confidence=confidence,
-        processing_time_ms=processing_time_ms,
-        processed_tokens=processed_tokens,
-    )
+    """Classify one invoice text -> category + confidence + top-3 alternatives."""
+    result = (await run_in_threadpool(classifier.predict_many, [request.text]))[0]
+    _record([result])
+    return result
 
 
 @app.post(
     "/predict/batch",
     response_model=BatchPredictionResponse,
     dependencies=[Depends(verify_api_key)],
-    tags=["Inference Engine"]
+    tags=["Inference Engine"],
 )
 async def predict_batch(
     request: BatchPredictionRequest,
-    classifier: InvoiceClassifier = Depends(get_classifier)
+    classifier: InvoiceClassifier = Depends(get_classifier),
 ):
-    """
-    Classify multiple invoice texts (max 100). Requires 'x-api-key' header.
-    """
+    """Classify up to 100 texts in one vectorized model call."""
     start = time.perf_counter()
-
-    async def process_single(text: str) -> PredictionResponse:
-        if not text.strip():
-            return PredictionResponse(
-                category="Unknown", confidence=0.0, processing_time_ms=0.0, processed_tokens=[]
-            )
-        try:
-            category, confidence, proc_ms, tokens = await run_in_threadpool(
-                classifier.predict, text
-            )
-            return PredictionResponse(
-                category=category,
-                confidence=confidence,
-                processing_time_ms=proc_ms,
-                processed_tokens=tokens,
-            )
-        except Exception as exc:
-            logger.error("Error predicting token: %s", exc)
-            return PredictionResponse(
-                category="Error", confidence=0.0, processing_time_ms=0.0, processed_tokens=[]
-            )
-
-    # Parallelize threadpool execution using asyncio.gather
-    predictions = await asyncio.gather(*(process_single(text) for text in request.texts))
-
-    total_ms = round((time.perf_counter() - start) * 1000, 2)
+    results = await run_in_threadpool(classifier.predict_many, request.texts)
+    _record(results)
     return BatchPredictionResponse(
-        predictions=predictions,
-        total_processing_time_ms=total_ms,
+        predictions=results,
+        total_processing_time_ms=round((time.perf_counter() - start) * 1000, 2),
     )
 
 
-@app.get("/metrics", response_model=MetricsResponse, tags=["System & Diagnostics"], dependencies=[Depends(verify_api_key)])
+@app.get(
+    "/metrics",
+    response_model=MetricsResponse,
+    tags=["System & Diagnostics"],
+    dependencies=[Depends(verify_api_key)],
+)
 async def get_metrics():
-    """
-    **[Protected]** Retrieve system inference metrics and diagnostic payload.
-    Used by infrastructure monitoring tools (e.g. Datadog, Prometheus) to track system health.
-    """
-    return MetricsResponse(
-        active_connections=len(_rate_limiter_instance.db) * 2 + 1,
-        inferences_processed=24503,
-        avg_latency_ms=1.45,
-        uptime_seconds=int(time.time() - BOOT_TIME),
-        memory_usage_mb=145.2
-    )
+    """Live counters since boot + held-out evaluation written by the training script."""
+    try:
+        evaluation = json.loads(settings.METRICS_PATH.read_text())
+    except FileNotFoundError:
+        evaluation = {}
+    with _stats_lock:
+        n = _stats["n"]
+        return MetricsResponse(
+            inferences_processed=n,
+            avg_latency_ms=round(_stats["total_ms"] / n, 3) if n else 0.0,
+            unknown_rate=round(_stats["unknown"] / n, 4) if n else 0.0,
+            uptime_seconds=int(time.time() - BOOT_TIME),
+            model_evaluation=evaluation,
+        )
 
 
-@app.post("/feedback", response_model=FeedbackResponse, tags=["MLOps (Beta)"], dependencies=[Depends(verify_api_key)])
-async def submit_feedback(request: FeedbackRequest):
-    """
-    **[Protected]** Submit ground-truth feedback for the Reinforcement Learning loop.
-    This data is temporarily held in an S3 data lake and triggers periodic model fine-tuning.
-    """
-    return FeedbackResponse(
-        status="queued_for_rlhf",
-        job_id=str(uuid.uuid4())
-    )
+_feedback_lock = threading.Lock()
 
 
-@app.post("/models/retrain", tags=["MLOps (Beta)"], dependencies=[Depends(verify_api_key)])
-async def trigger_retrain():
-    """
-    **[Protected]** Asynchronously trigger pipeline retraining using the accumulated RLHF dataset.
-    """
-    raise HTTPException(status_code=501, detail="Model retraining is currently handled externally by the Airflow DAG pipeline.")
-
+@app.post(
+    "/feedback",
+    response_model=FeedbackResponse,
+    tags=["MLOps"],
+    dependencies=[Depends(verify_api_key)],
+)
+def submit_feedback(request: FeedbackRequest):
+    """Store a human correction. Next `python -m training.train_model` run includes it."""
+    if request.actual_category not in settings.CATEGORIES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"actual_category must be one of {settings.CATEGORIES}",
+        )
+    path = settings.BASE_DIR / "data" / "feedback.csv"
+    # ponytail: CSV + process lock; move to a DB table when running multiple workers.
+    with _feedback_lock:
+        new = not path.exists()
+        with open(path, "a", newline="", encoding="utf-8") as f:
+            w = csv.writer(f)
+            if new:
+                w.writerow(["text", "category", "predicted"])
+            w.writerow(
+                [
+                    request.original_text,
+                    request.actual_category,
+                    request.predicted_category,
+                ]
+            )
+        with open(path, encoding="utf-8") as f:
+            rows = sum(1 for _ in f) - 1
+    return FeedbackResponse(status="stored", feedback_rows=rows)

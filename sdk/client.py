@@ -4,9 +4,9 @@ Zero-dependency implementation using Python's built-in urllib.
 """
 
 import json
-import urllib.request
 import urllib.error
-from typing import List, Dict, Any
+import urllib.request
+from typing import Any
 
 
 class NextBillClassifierClient:
@@ -14,7 +14,12 @@ class NextBillClassifierClient:
     Zero-dependency Python Client for integrating the NextBill Invoice Expense Classifier.
     """
 
-    def __init__(self, base_url: str = "http://localhost:8000", api_key: str = "", timeout: float = 5.0):
+    def __init__(
+        self,
+        base_url: str = "http://localhost:8000",
+        api_key: str = "",
+        timeout: float = 5.0,
+    ):
         """
         Initialize the client.
 
@@ -27,7 +32,7 @@ class NextBillClassifierClient:
         self.api_key = api_key
         self.timeout = timeout
 
-    def _request(self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def _request(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         url = f"{self.base_url}{path}"
         headers = {
             "Content-Type": "application/json",
@@ -44,13 +49,13 @@ class NextBillClassifierClient:
             try:
                 body = json.loads(exc.read().decode("utf-8"))
                 error_msg = body.get("error", {}).get("message", exc.reason)
-            except Exception:
+            except (ValueError, AttributeError):
                 error_msg = exc.reason
             raise RuntimeError(f"NextBill API Error (HTTP {exc.code}): {error_msg}") from exc
         except Exception as exc:
             raise RuntimeError(f"Failed to connect to NextBill API: {exc}") from exc
 
-    def classify(self, text: str) -> Dict[str, Any]:
+    def classify(self, text: str) -> dict[str, Any]:
         """
         Classify a single invoice description.
 
@@ -64,7 +69,7 @@ class NextBillClassifierClient:
             raise ValueError("Invoice text cannot be empty.")
         return self._request("/predict", {"text": text})
 
-    def classify_batch(self, texts: List[str]) -> Dict[str, Any]:
+    def classify_batch(self, texts: list[str]) -> dict[str, Any]:
         """
         Classify a batch of invoice descriptions (max 100).
 

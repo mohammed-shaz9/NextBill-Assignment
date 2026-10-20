@@ -1,7 +1,9 @@
 """Unit tests for the NextBillClassifierClient SDK."""
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 import pytest
+
 from sdk.client import NextBillClassifierClient
 
 

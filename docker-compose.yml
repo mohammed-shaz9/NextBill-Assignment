@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   api:
     build: .
@@ -8,7 +6,6 @@ services:
       - "8000:8000"
     environment:
       - MODEL_PATH=training/trained_model.pkl
-      - VECTORIZER_PATH=training/vectorizer.pkl
       - LOG_LEVEL=INFO
     restart: unless-stopped
     healthcheck:

@@ -1,6 +1,7 @@
 """Unit tests for the InvoiceClassifier."""
 
 import pytest
+
 from app.classifier import InvoiceClassifier
 from app.config import settings
 

@@ -1,0 +1,13 @@
+{
+  "model": "logreg",
+  "cv_macro_f1": {
+    "logreg": 1.0,
+    "linear_svc_calibrated": 1.0,
+    "complement_nb": 1.0
+  },
+  "test_accuracy": 1.0,
+  "test_macro_f1": 1.0,
+  "n_train": 864,
+  "n_test": 216,
+  "realistic_accuracy": 0.9444
+}

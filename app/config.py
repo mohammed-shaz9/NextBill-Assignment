@@ -3,27 +3,29 @@ NextBill Invoice Expense Classifier - Configuration
 """
 
 from pathlib import Path
-from pydantic_settings import BaseSettings, SettingsConfigDict
+
 from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """
     Application settings loaded from environment variables or .env file.
     """
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore"
-    )
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # ---------- Paths ----------
     BASE_DIR: Path = Path(__file__).resolve().parent.parent
     MODEL_PATH: Path = Field(
-        default_factory=lambda: Path(__file__).resolve().parent.parent / "training" / "trained_model.pkl"
+        default_factory=lambda: (
+            Path(__file__).resolve().parent.parent / "training" / "trained_model.pkl"
+        )
     )
     DATA_PATH: Path = Field(
-        default_factory=lambda: Path(__file__).resolve().parent.parent / "data" / "training_data.csv"
+        default_factory=lambda: (
+            Path(__file__).resolve().parent.parent / "data" / "training_data.csv"
+        )
     )
 
     # ---------- API Metadata ----------
@@ -36,7 +38,8 @@ class Settings(BaseSettings):
 
     # ---------- Security ----------
     ENVIRONMENT: str = Field(default="development")
-    API_KEY: str = Field(default="nextbill_dev_secret_key_2026")
+    # Empty = open API (matches assignment spec). Set API_KEY env to require x-api-key.
+    API_KEY: str = Field(default="")
     API_KEY_NAME: str = "x-api-key"
     ALLOWED_ORIGINS: list[str] = Field(
         default_factory=lambda: [
@@ -57,8 +60,11 @@ class Settings(BaseSettings):
     ]
 
     # ---------- Model ----------
-    MODEL_VERSION: str = "1.0.0-tfidf-lr"
-    CONFIDENCE_THRESHOLD: float = 0.25
+    METRICS_PATH: Path = Field(
+        default_factory=lambda: Path(__file__).resolve().parent.parent / "training" / "metrics.json"
+    )
+    MODEL_VERSION: str = "2.0.0-tfidf-word-char"
+    CONFIDENCE_THRESHOLD: float = 0.40
 
 
 # Global settings instance

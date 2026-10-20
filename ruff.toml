@@ -1,0 +1,5 @@
+line-length = 100
+
+[lint.flake8-bugbear]
+# FastAPI dependency injection idiom
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Security"]
